@@ -23,7 +23,27 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-app.use(cors());
+// Correct CORS setup for Render + Vercel
+const allowedOrigins = [
+  "https://teftef-business-ecosystem.vercel.app",
+  "http://localhost:5173"
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  methods: "GET,POST,PUT,DELETE,PATCH",
+  credentials: true,
+}));
+
+// Fix preflight (OPTIONS) request
+app.options("*", cors());
+
 app.use(express.json());
 
 // Routes
