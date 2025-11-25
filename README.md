@@ -3,7 +3,7 @@ MERN Stack | AI-Assisted Business Idea Generator | Partner Matching | Supplier P
 
 TefTef is an AI-powered business ecosystem designed to help entrepreneurs in emerging economies launch and scale businesses with smart guidance, low upfront risk, and access to partners, suppliers, properties, and investors — all in one platform.
 
-🔗 Live Demo: 
+🔗 Live Demo: https://teftef-business-ecosystem.vercel.app/
 
 ## Features
 
