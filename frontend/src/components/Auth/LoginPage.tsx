@@ -1,23 +1,48 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LogIn } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-export const LoginPage = ({ onToggle }: { onToggle: () => void }) => {
+export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
   const { signIn } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      const profile = await signIn(email, password);
+      const role = profile.role;
+
+      switch (role) {
+        case "entrepreneur":
+          navigate("/entrepreneur/dashboard");
+          break;
+        case "investor":
+          navigate("/investor/dashboard");
+          break;
+        case "realtor":
+          navigate("/realtor/dashboard");
+          break;
+        case "supplier":
+          navigate("/supplier/dashboard");
+          break;
+        case "admin":
+          navigate("/admin/dashboard");
+          break;
+        default:
+          navigate("/");
+          break;
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -26,6 +51,7 @@ export const LoginPage = ({ onToggle }: { onToggle: () => void }) => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0B2C45] via-[#0e3a5a] to-[#00AEEF] p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+        
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-[#0B2C45] mb-2">TefTef</h1>
           <p className="text-gray-600">Sign in to your account</p>
@@ -80,12 +106,13 @@ export const LoginPage = ({ onToggle }: { onToggle: () => void }) => {
 
         <div className="mt-6 text-center">
           <button
-            onClick={onToggle}
+            onClick={() => navigate("/signup")}
             className="text-[#00AEEF] hover:text-[#0B2C45] font-medium transition"
           >
             Don't have an account? Sign Up
           </button>
         </div>
+
       </div>
     </div>
   );

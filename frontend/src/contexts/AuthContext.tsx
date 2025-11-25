@@ -1,18 +1,19 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'; 
+/// <reference types="vite/client" />
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 interface Profile {
   _id: string;
   fullName: string;
   email: string;
-  role: 'entrepreneur' | 'investor' | 'realtor' | 'supplier' | 'admin';
+  role: "entrepreneur" | "investor" | "realtor" | "supplier" | "admin";
 }
 
 interface AuthContextType {
   user: { email: string } | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, role: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<Profile>;
+  signUp: (fullName: string, email: string, password: string, role: Profile["role"]) => Promise<Profile>;
   signOut: () => void;
 }
 
@@ -23,46 +24,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = (import.meta as any).env?.VITE_API_URL || ''; // backend URL from .env
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-  // Load user from localStorage on mount
+  // Load user on mount
   useEffect(() => {
-    // Commented real API/localStorage loading
-    // const token = localStorage.getItem('token');
-    // const storedProfile = localStorage.getItem('profile');
-    // if (token && storedProfile) {
-    //   setUser({ email: JSON.parse(storedProfile).email });
-    //   setProfile(JSON.parse(storedProfile));
-    // }
+    const token = localStorage.getItem("token");
+    const storedProfile = localStorage.getItem("profile");
 
-    // MOCK USER: bypass authorization
-    const mockUser = { email: 'testuser@example.com' };
-    const mockProfile: Profile = { _id: '123', fullName: 'Test User', email: 'testuser@example.com', role: 'entrepreneur' };
-    setUser(mockUser);
-    setProfile(mockProfile);
-
+    if (token && storedProfile) {
+      try {
+        const parsed: Profile = JSON.parse(storedProfile);
+        setUser({ email: parsed.email });
+        setProfile(parsed);
+      } catch {
+        localStorage.removeItem("profile");
+      }
+    }
     setLoading(false);
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  // -------------------------------------------
+  // SIGN IN
+  // -------------------------------------------
+  const signIn = async (email: string, password: string): Promise<Profile> => {
     setLoading(true);
     try {
-      // Commented real API call
-      // const res = await fetch(`${API_URL}/api/auth/login`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password }),
-      // });
-      // const data = await res.json();
-      // if (!res.ok) throw new Error(data.message || 'Login failed');
-      // setUser({ email: data.user.email });
-      // setProfile(data.profile);
-      // localStorage.setItem('token', data.token);
-      // localStorage.setItem('profile', JSON.stringify(data.profile));
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      // MOCK
-      setUser({ email });
-      setProfile({ _id: '123', fullName: 'Test User', email, role: 'entrepreneur' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Login failed");
+
+      const profile: Profile = data.profile;
+
+      setUser({ email: profile.email });
+      setProfile(profile);
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("profile", JSON.stringify(profile));
+
+      return profile;
     } catch (err: any) {
       throw new Error(err.message);
     } finally {
@@ -70,25 +74,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: string) => {
+  // -------------------------------------------
+  // SIGN UP
+  // -------------------------------------------
+  const signUp = async (
+    fullName: string,
+    email: string,
+    password: string,
+    role: Profile["role"]
+  ): Promise<Profile> => {
     setLoading(true);
     try {
-      // Commented real API call
-      // const res = await fetch(`${API_URL}/api/auth/signup`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password, fullName, role }),
-      // });
-      // const data = await res.json();
-      // if (!res.ok) throw new Error(data.message || 'Signup failed');
-      // setUser({ email: data.user.email });
-      // setProfile(data.profile);
-      // localStorage.setItem('token', data.token);
-      // localStorage.setItem('profile', JSON.stringify(data.profile));
+      const res = await fetch(`${API_URL}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email, password, role }),
+      });
 
-      // MOCK
-      setUser({ email });
-      setProfile({ _id: '123', fullName, email, role: role as Profile['role'] });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Signup failed");
+
+      const profile: Profile = data.profile;
+
+      setUser({ email: profile.email });
+      setProfile(profile);
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("profile", JSON.stringify(profile));
+
+      return profile;
     } catch (err: any) {
       throw new Error(err.message);
     } finally {
@@ -96,11 +110,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // -------------------------------------------
+  // SIGN OUT
+  // -------------------------------------------
   const signOut = () => {
     setUser(null);
     setProfile(null);
-    // localStorage.removeItem('token');
-    // localStorage.removeItem('profile');
+    localStorage.removeItem("token");
+    localStorage.removeItem("profile");
   };
 
   return (
@@ -110,8 +127,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// -------------------------------------------
+// HOOK
+// -------------------------------------------
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };
