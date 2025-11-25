@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import businessIdeasRoutes from "./routes/businessIdeasRoutes.js";
-import investmentRoutes from "./routes/investmentRoutes.js"; 
+import investmentRoutes from "./routes/investmentRoutes.js";
 
 import User from "./models/User.js";
 import BusinessIdea from "./models/BusinessIdea.js";
@@ -20,39 +20,58 @@ dotenv.config();
 connectDB();
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
 
-// Correct CORS setup for Render + Vercel
+// ---------------------------
+// ✅ CORS FIXED FOR RENDER + VERCEL
+// ---------------------------
 const allowedOrigins = [
   "https://teftef-business-ecosystem.vercel.app",
   "http://localhost:5173"
 ];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
-  methods: "GET,POST,PUT,DELETE,PATCH",
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+  })
+);
 
-// Fix preflight (OPTIONS) request
+// Fix preflight
 app.options("*", cors());
+
+// Extra header fix (Render sometimes needs this)
+app.use((req, res, next) => {
+  res.header(
+    "Access-Control-Allow-Origin",
+    "https://teftef-business-ecosystem.vercel.app"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+  next();
+});
 
 app.use(express.json());
 
-// Routes
+// ---------------------------
+// ROUTES
+// ---------------------------
+
 app.use("/api/auth", authRoutes);
 app.use("/api/business-ideas", businessIdeasRoutes);
 app.use("/api/investments", investmentRoutes);
 
-// Test route
-app.get("/", (req, res) => res.send("Socket.IO & MongoDB server running"));
+app.get("/", (req, res) => res.send("Backend is running on Render 🚀"));
 
 // Admin Dashboard Data
 app.get("/api/dashboard", protect, adminOnly, async (req, res) => {
@@ -68,7 +87,17 @@ app.get("/api/dashboard", protect, adminOnly, async (req, res) => {
   }
 });
 
-// Socket.IO events
+// ---------------------------
+// SOCKET.IO
+// ---------------------------
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+});
+
 const connectedUsers = new Map();
 
 io.on("connection", (socket) => {
@@ -81,20 +110,30 @@ io.on("connection", (socket) => {
 
   socket.on("send_message", ({ senderId, recipientId, content }) => {
     const recipientSocket = connectedUsers.get(recipientId);
-    const messageData = { senderId, recipientId, content, createdAt: new Date() };
+    const messageData = {
+      senderId,
+      recipientId,
+      content,
+      createdAt: new Date(),
+    };
 
-    if (recipientSocket) io.to(recipientSocket).emit("receive_message", messageData);
+    if (recipientSocket)
+      io.to(recipientSocket).emit("receive_message", messageData);
+
     socket.emit("receive_message", messageData);
   });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
+
     for (let [userId, sId] of connectedUsers) {
       if (sId === socket.id) connectedUsers.delete(userId);
     }
   });
 });
 
-// Start server
+// ---------------------------
+// START SERVER
+// ---------------------------
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
