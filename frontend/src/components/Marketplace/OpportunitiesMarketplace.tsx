@@ -157,10 +157,10 @@ export const OpportunitiesMarketplace = () => {
                 <p className="text-sm font-semibold text-[#0B2C45]">
                   {opportunity.entrepreneur?.full_name || 'Anonymous'}
                 </p>
-                {opportunity.entrepreneur?.rating > 0 && (
+                {(opportunity.entrepreneur?.rating ?? 0) > 0 && (
                   <div className="flex items-center gap-1 mt-1">
                     <span className="text-yellow-500 text-xs">⭐</span>
-                    <span className="text-xs font-semibold">{opportunity.entrepreneur.rating.toFixed(1)}</span>
+                    <span className="text-xs font-semibold">{(opportunity.entrepreneur?.rating ?? 0).toFixed(1)}</span>
                   </div>
                 )}
               </div>

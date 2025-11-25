@@ -1,24 +1,25 @@
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { Users, MapPin, Briefcase, MessageCircle, Star, Filter } from 'lucide-react';
+import axios from 'axios';
 
-interface Profile {
+interface PartnerProfile {
   _id: string;
   full_name: string;
   role: string;
-  company_name?: string;
-  bio?: string;
   industry?: string;
   location?: string;
+  company_name?: string;
+  bio?: string;
   rating: number;
   total_reviews: number;
   specialization?: string;
 }
 
 export const FindPartners = () => {
-  const { user } = useUser();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
+  const { user } = useAuth();
+  const [profiles, setProfiles] = useState<PartnerProfile[]>([]);
+  const [filteredProfiles, setFilteredProfiles] = useState<PartnerProfile[]>([]);
   const [filters, setFilters] = useState({
     role: 'all',
     industry: '',
@@ -33,14 +34,14 @@ export const FindPartners = () => {
     applyFilters();
   }, [filters, profiles]);
 
-  // Fetch profiles from your backend (MERN)
+  // Load profiles from your API
   const loadProfiles = async () => {
     try {
-      const res = await fetch('/api/profiles'); // your backend endpoint
-      const data: Profile[] = await res.json();
+      const res = await axios.get('/api/users'); // replace with your API endpoint
+      const allProfiles: PartnerProfile[] = res.data;
 
-      // Exclude current user
-      const filtered = data.filter(p => p._id !== user?.id);
+      // Filter out current user
+      const filtered = allProfiles.filter(p => p._id !== user?.email);
       setProfiles(filtered);
     } catch (err) {
       console.error('Error loading profiles:', err);
@@ -69,21 +70,18 @@ export const FindPartners = () => {
     setFilteredProfiles(filtered);
   };
 
-  // Trigger backend to create chat/notification
   const startChat = async (partnerId: string) => {
+    // You can integrate your messages API here
     try {
-      await fetch('/api/chats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderId: user?.id,
-          recipientId: partnerId,
-        }),
+      await axios.post('/api/notifications', {
+        user_id: partnerId,
+        title: 'New Connection Request',
+        message: `Someone wants to connect with you!`,
+        type: 'message',
       });
-
-      alert('Chat feature coming soon! The partner has been notified of your interest.');
+      alert('Chat feature coming soon! Partner notified.');
     } catch (err) {
-      console.error('Error starting chat:', err);
+      console.error('Error sending notification:', err);
     }
   };
 
@@ -110,13 +108,12 @@ export const FindPartners = () => {
           <Filter className="text-[#00AEEF]" size={24} />
           <h2 className="text-lg font-semibold text-[#0B2C45]">Filters</h2>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
             <select
               value={filters.role}
-              onChange={(e) => setFilters({ ...filters, role: e.target.value })}
+              onChange={e => setFilters({ ...filters, role: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00AEEF] focus:border-transparent outline-none"
             >
               <option value="all">All Roles</option>
@@ -132,7 +129,7 @@ export const FindPartners = () => {
             <input
               type="text"
               value={filters.industry}
-              onChange={(e) => setFilters({ ...filters, industry: e.target.value })}
+              onChange={e => setFilters({ ...filters, industry: e.target.value })}
               placeholder="Search by industry..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00AEEF] focus:border-transparent outline-none"
             />
@@ -143,7 +140,7 @@ export const FindPartners = () => {
             <input
               type="text"
               value={filters.location}
-              onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+              onChange={e => setFilters({ ...filters, location: e.target.value })}
               placeholder="Search by location..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00AEEF] focus:border-transparent outline-none"
             />
@@ -151,19 +148,17 @@ export const FindPartners = () => {
         </div>
       </div>
 
-      {/* Profiles */}
+      {/* Profiles Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProfiles.map((profile) => (
+        {filteredProfiles.map(profile => (
           <div key={profile._id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition overflow-hidden">
             <div className="h-24 bg-gradient-to-r from-[#00AEEF] to-[#0B2C45]"></div>
-
             <div className="p-6 -mt-12">
               <div className="flex justify-center mb-4">
                 <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 flex items-center justify-center text-3xl font-bold text-[#0B2C45] shadow-lg">
                   {profile.full_name.charAt(0).toUpperCase()}
                 </div>
               </div>
-
               <div className="text-center mb-4">
                 <h3 className="text-xl font-bold text-[#0B2C45] mb-1">{profile.full_name}</h3>
                 {profile.company_name && <p className="text-sm text-gray-600 mb-2">{profile.company_name}</p>}
@@ -171,34 +166,15 @@ export const FindPartners = () => {
                   {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
                 </span>
               </div>
-
               {profile.bio && <p className="text-sm text-gray-600 text-center mb-4 line-clamp-3">{profile.bio}</p>}
 
               <div className="space-y-2 mb-4">
-                {profile.industry && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Briefcase size={16} className="text-[#00AEEF]" />
-                    <span>{profile.industry}</span>
-                  </div>
-                )}
-                {profile.location && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin size={16} className="text-[#00AEEF]" />
-                    <span>{profile.location}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Star size={16} className="text-yellow-500" fill="currentColor" />
-                  <span>{profile.rating.toFixed(1)} ({profile.total_reviews} reviews)</span>
-                </div>
+                {profile.industry && <div className="flex items-center gap-2 text-sm text-gray-600"><Briefcase size={16} className="text-[#00AEEF]" />{profile.industry}</div>}
+                {profile.location && <div className="flex items-center gap-2 text-sm text-gray-600"><MapPin size={16} className="text-[#00AEEF]" />{profile.location}</div>}
+                <div className="flex items-center gap-2 text-sm text-gray-600"><Star size={16} className="text-yellow-500" fill="currentColor" />{profile.rating.toFixed(1)} ({profile.total_reviews} reviews)</div>
               </div>
 
-              {profile.specialization && (
-                <div className="mb-4">
-                  <p className="text-xs text-gray-500 mb-1">Specialization:</p>
-                  <p className="text-sm font-medium text-[#0B2C45]">{profile.specialization}</p>
-                </div>
-              )}
+              {profile.specialization && <div className="mb-4"><p className="text-xs text-gray-500 mb-1">Specialization:</p><p className="text-sm font-medium text-[#0B2C45]">{profile.specialization}</p></div>}
 
               <button
                 onClick={() => startChat(profile._id)}
@@ -216,9 +192,7 @@ export const FindPartners = () => {
         <div className="text-center py-16 bg-white rounded-xl shadow-md">
           <Users size={64} className="mx-auto mb-4 text-gray-300" />
           <h3 className="text-xl font-semibold text-gray-700 mb-2">No Partners Found</h3>
-          <p className="text-gray-600">
-            Try adjusting your filters or check back later for new partners.
-          </p>
+          <p className="text-gray-600">Try adjusting your filters or check back later for new partners.</p>
         </div>
       )}
     </div>

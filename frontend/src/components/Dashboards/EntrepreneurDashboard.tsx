@@ -1,6 +1,18 @@
-import { useState, useEffect } from 'react';
-import { Lightbulb, DollarSign, TrendingUp, Plus, Edit, Trash2 } from 'lucide-react';
+import { useState, useEffect } from "react";
+import axios from "axios";
+import {
+  Lightbulb,
+  DollarSign,
+  TrendingUp,
+  Plus,
+  Edit,
+  Trash2,
+} from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
+// ---------------------------
+// Interfaces
+// ---------------------------
 interface BusinessIdea {
   _id: string;
   title: string;
@@ -9,235 +21,360 @@ interface BusinessIdea {
   estimated_capital: number;
   estimated_roi: number;
   location?: string;
-  status: 'draft' | 'active' | 'funded' | 'completed';
+  status: "draft" | "active" | "funded" | "completed";
   createdAt: string;
 }
 
 interface Investment {
   _id: string;
   amount: number;
-  status: 'active' | 'completed' | 'defaulted';
+  status: "active" | "completed" | "defaulted";
   investment_type: string;
-  investor?: { full_name: string };
+  investor?: { fullName: string };
   createdAt: string;
 }
 
+// ---------------------------
+// Dashboard Component
+// ---------------------------
+
 const EntrepreneurDashboard = () => {
+  const { profile, signOut } = useAuth();
   const [businessIdeas, setBusinessIdeas] = useState<BusinessIdea[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingIdea, setEditingIdea] = useState<BusinessIdea | null>(null);
+ type StatusType = "draft" | "active" | "funded" | "completed";
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: '',
-    estimated_capital: '',
-    estimated_roi: '',
-    location: '',
-    status: 'draft' as 'draft' | 'active' | 'completed' | 'funded',
-  });
+interface FormData {
+  title: string;
+  description: string;
+  category: string;
+  estimated_capital: string;
+  estimated_roi: string;
+  location: string;
+  status: StatusType;
+}
 
-  // ----------------------------
-  // Load Mock Data
-  // ----------------------------
-  const loadData = () => {
-    const mockBusinessIdeas: BusinessIdea[] = [
-      {
-        _id: '1',
-        title: 'Coffee Shop Startup',
-        description: 'A cozy coffee shop in downtown.',
-        category: 'Food & Beverage',
-        estimated_capital: 5000,
-        estimated_roi: 20,
-        status: 'draft',
-        createdAt: new Date().toISOString(),
-        location: 'New York',
-      },
-      {
-        _id: '2',
-        title: 'E-commerce Store',
-        description: 'Selling eco-friendly products online.',
-        category: 'Retail',
-        estimated_capital: 3000,
-        estimated_roi: 25,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        location: 'Los Angeles',
-      },
-    ];
+const [formData, setFormData] = useState<FormData>({
+  title: "",
+  description: "",
+  category: "",
+  estimated_capital: "",
+  estimated_roi: "",
+  location: "",
+  status: "draft",
+});
 
-    const mockInvestments: Investment[] = [
-      {
-        _id: '1',
-        amount: 2000,
-        status: 'active',
-        investment_type: 'Equity',
-        createdAt: new Date().toISOString(),
-        investor: { full_name: 'John Doe' },
-      },
-      {
-        _id: '2',
-        amount: 1000,
-        status: 'completed',
-        investment_type: 'Loan',
-        createdAt: new Date().toISOString(),
-        investor: { full_name: 'Jane Smith' },
-      },
-    ];
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-    setBusinessIdeas(mockBusinessIdeas);
-    setInvestments(mockInvestments);
+  // ---------------------------
+  // Load Data
+  // ---------------------------
+  const loadData = async () => {
+    if (!profile) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const [ideasRes, investmentsRes] = await Promise.all([
+        axios.get(`${API_URL}/api/business-ideas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${API_URL}/api/investments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      setBusinessIdeas(ideasRes.data);
+      setInvestments(investmentsRes.data);
+    } catch (err) {
+      console.error("Error loading data:", err);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [profile]);
 
-  // ----------------------------
-  // Form handling
-  // ----------------------------
+  // ---------------------------
+  // Form Handlers
+  // ---------------------------
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      description: "",
+      category: "",
+      estimated_capital: "",
+      estimated_roi: "",
+      location: "",
+      status: "draft",
+    });
+  };
+
   const handleEdit = (idea: BusinessIdea) => {
     setEditingIdea(idea);
     setFormData({
       title: idea.title,
       description: idea.description,
-      category: idea.category || '',
+      category: idea.category || "",
       estimated_capital: idea.estimated_capital.toString(),
       estimated_roi: idea.estimated_roi.toString(),
-      location: idea.location || '',
+      location: idea.location || "",
       status: idea.status,
     });
     setShowModal(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm('Are you sure you want to delete this idea?')) return;
-    setBusinessIdeas(prev => prev.filter(i => i._id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this business idea?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`${API_URL}/api/business-ideas/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setBusinessIdeas((prev) => prev.filter((i) => i._id !== id));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newIdea: BusinessIdea = {
-      _id: editingIdea ? editingIdea._id : Date.now().toString(),
-      title: formData.title,
-      description: formData.description,
-      category: formData.category,
-      estimated_capital: parseFloat(formData.estimated_capital),
-      estimated_roi: parseFloat(formData.estimated_roi),
-      status: formData.status,
-      createdAt: new Date().toISOString(),
-      location: formData.location,
-    };
+    try {
+      const token = localStorage.getItem("token");
+      const payload = {
+        ...formData,
+        estimated_capital: parseFloat(formData.estimated_capital),
+        estimated_roi: parseFloat(formData.estimated_roi),
+      };
 
-    if (editingIdea) {
-      setBusinessIdeas(prev =>
-        prev.map(i => (i._id === editingIdea._id ? newIdea : i))
-      );
-    } else {
-      setBusinessIdeas(prev => [...prev, newIdea]);
+      if (editingIdea) {
+        await axios.put(
+          `${API_URL}/api/business-ideas/${editingIdea._id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        await axios.post(`${API_URL}/api/business-ideas`, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+
+      setShowModal(false);
+      setEditingIdea(null);
+      resetForm();
+      loadData();
+    } catch (err) {
+      console.error(err);
     }
-
-    setShowModal(false);
-    setEditingIdea(null);
-    setFormData({
-      title: '',
-      description: '',
-      category: '',
-      estimated_capital: '',
-      estimated_roi: '',
-      location: '',
-      status: 'draft',
-    });
   };
 
   const totalFunding = investments
-    .filter(i => i.status === 'active' || i.status === 'completed')
+    .filter((i) => i.status === "active" || i.status === "completed")
     .reduce((sum, i) => sum + i.amount, 0);
 
+  // ---------------------------
+  // JSX
+  // ---------------------------
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#0B2C45] mb-2">Entrepreneur Dashboard</h1>
-        <p className="text-gray-600">Manage your business ideas and track funding</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-md p-6 flex justify-between items-center">
-          <div>
-            <p className="text-gray-600 text-sm">Business Ideas</p>
-            <p className="text-3xl font-bold text-[#0B2C45] mt-1">{businessIdeas.length}</p>
-          </div>
-          <Lightbulb className="text-[#00AEEF]" size={40} />
+    <div className="min-h-screen bg-gray-50">
+      {/* Navbar */}
+      <nav className="bg-white shadow-md px-6 py-4 flex justify-between items-center">
+        <div className="flex gap-6 items-center">
         </div>
+      </nav>
 
-        <div className="bg-white rounded-xl shadow-md p-6 flex justify-between items-center">
-          <div>
-            <p className="text-gray-600 text-sm">Total Funding</p>
-            <p className="text-3xl font-bold text-[#0B2C45] mt-1">
-              ${totalFunding.toLocaleString()}
-            </p>
-          </div>
-          <DollarSign className="text-green-500" size={40} />
-        </div>
-
-        <div className="bg-white rounded-xl shadow-md p-6 flex justify-between items-center">
-          <div>
-            <p className="text-gray-600 text-sm">Active Investments</p>
-            <p className="text-3xl font-bold text-[#0B2C45] mt-1">
-              {investments.filter(i => i.status === 'active').length}
-            </p>
-          </div>
-          <TrendingUp className="text-[#00AEEF]" size={40} />
-        </div>
-      </div>
-
-      {/* Business Ideas List */}
-      <div className="mb-6 flex justify-between items-center">
-        <h2 className="text-xl font-bold text-[#0B2C45]">Your Business Ideas</h2>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[#00AEEF] text-white px-4 py-2 rounded-lg"
-        >
-          <Plus size={16} /> Add Idea
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {businessIdeas.map(idea => (
-          <div key={idea._id} className="bg-white rounded-xl shadow-md p-4">
-            <h3 className="text-lg font-semibold text-[#0B2C45]">{idea.title}</h3>
-            <p className="text-gray-600 mb-2">{idea.description}</p>
-            <p className="text-sm text-gray-500 mb-2">
-              Category: {idea.category || 'N/A'} | Location: {idea.location || 'N/A'}
-            </p>
-            <div className="flex justify-between items-center mt-2">
-              <button
-                onClick={() => handleEdit(idea)}
-                className="flex items-center gap-1 text-blue-600"
-              >
-                <Edit size={14} /> Edit
-              </button>
-              <button
-                onClick={() => handleDelete(idea._id)}
-                className="flex items-center gap-1 text-red-600"
-              >
-                <Trash2 size={14} /> Delete
-              </button>
+      {/* Main content */}
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-md p-6 flex justify-between items-center">
+            <div>
+              <p className="text-gray-600 text-sm">Business Ideas</p>
+              <p className="text-3xl font-bold text-[#0B2C45] mt-1">{businessIdeas.length}</p>
             </div>
+            <Lightbulb className="text-[#00AEEF]" size={40} />
           </div>
-        ))}
+
+          <div className="bg-white rounded-xl shadow-md p-6 flex justify-between items-center">
+            <div>
+              <p className="text-gray-600 text-sm">Total Funding</p>
+              <p className="text-3xl font-bold text-[#0B2C45] mt-1">${totalFunding.toLocaleString()}</p>
+            </div>
+            <DollarSign className="text-green-500" size={40} />
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6 flex justify-between items-center">
+            <div>
+              <p className="text-gray-600 text-sm">Active Investments</p>
+              <p className="text-3xl font-bold text-[#0B2C45] mt-1">
+                {investments.filter((i) => i.status === "active").length}
+              </p>
+            </div>
+            <TrendingUp className="text-[#00AEEF]" size={40} />
+          </div>
+        </div>
+
+        {/* Business Ideas Section */}
+        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-[#0B2C45]">Your Business Ideas</h2>
+            <button
+              onClick={() => {
+                resetForm();
+                setEditingIdea(null);
+                setShowModal(true);
+              }}
+              className="flex items-center gap-2 bg-gradient-to-r from-[#00AEEF] to-[#0B2C45] text-white px-4 py-2 rounded-lg hover:shadow-lg transition"
+            >
+              <Plus size={18} />
+              Add Business Idea
+            </button>
+          </div>
+
+          <div className="grid gap-4">
+            {businessIdeas.map((idea) => (
+              <div
+                key={idea._id}
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold text-[#0B2C45]">{idea.title}</h3>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          idea.status === "active"
+                            ? "bg-green-100 text-green-800"
+                            : idea.status === "funded"
+                            ? "bg-blue-100 text-blue-800"
+                            : idea.status === "completed"
+                            ? "bg-gray-100 text-gray-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {idea.status.toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 mb-3">{idea.description}</p>
+                    <div className="flex gap-6 text-sm">
+                      <div>
+                        <span className="text-gray-500">Capital: </span>
+                        <span className="font-semibold text-[#0B2C45]">
+                          ${idea.estimated_capital.toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">ROI: </span>
+                        <span className="font-semibold text-green-600">{idea.estimated_roi}%</span>
+                      </div>
+                      {idea.location && (
+                        <div>
+                          <span className="text-gray-500">Location: </span>
+                          <span className="font-semibold text-[#0B2C45]">{idea.location}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(idea)}
+                      className="p-2 text-[#00AEEF] hover:bg-blue-50 rounded-lg transition"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(idea._id)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {businessIdeas.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <Lightbulb size={48} className="mx-auto mb-4 text-gray-300" />
+                <p>No business ideas yet. Start by adding your first idea!</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Investments Section */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h2 className="text-xl font-bold text-[#0B2C45] mb-6">Your Investments</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                    Investor
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                    Amount
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                    Type
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                    Status
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
+                    Date
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {investments.map((inv) => (
+                  <tr key={inv._id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4">{inv.investor?.fullName || "Anonymous"}</td>
+                    <td className="py-3 px-4 font-semibold">${inv.amount.toLocaleString()}</td>
+                    <td className="py-3 px-4 capitalize">{inv.investment_type}</td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          inv.status === "active"
+                            ? "bg-green-100 text-green-800"
+                            : inv.status === "completed"
+                            ? "bg-blue-100 text-blue-800"
+                            : inv.status === "defaulted"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {inv.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-gray-600">
+                      {new Date(inv.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {investments.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                <DollarSign size={48} className="mx-auto mb-4 text-gray-300" />
+                <p>No investments received yet</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg p-6 relative">
-            <h2 className="text-xl font-bold text-[#0B2C45] mb-4">
-              {editingIdea ? 'Edit Idea' : 'Add Idea'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-2xl font-bold text-[#0B2C45]">
+                {editingIdea ? "Edit Business Idea" : "Add Business Idea"}
+              </h3>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <input
                 type="text"
                 placeholder="Title"
@@ -281,20 +418,19 @@ const EntrepreneurDashboard = () => {
                 onChange={e => setFormData({ ...formData, estimated_roi: e.target.value })}
                 className="w-full px-4 py-2 border rounded-lg"
               />
+              <select
+                value={formData.status}
+                onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+                className="w-full px-4 py-2 border rounded-lg"
+              >
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="funded">Funded</option>
+                <option value="completed">Completed</option>
+              </select>
               <div className="flex justify-end gap-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#00AEEF] text-white rounded-lg"
-                >
-                  Save
-                </button>
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-[#00AEEF] text-white rounded-lg">Save</button>
               </div>
             </form>
           </div>

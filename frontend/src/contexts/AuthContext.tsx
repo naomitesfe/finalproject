@@ -1,11 +1,14 @@
 /// <reference types="vite/client" />
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-interface Profile {
+export type Role = "entrepreneur" | "investor" | "realtor" | "supplier" | "admin";
+
+export interface Profile {
   _id: string;
   fullName: string;
+  firstName: string; // for easy dashboard greeting
   email: string;
-  role: "entrepreneur" | "investor" | "realtor" | "supplier" | "admin";
+  role: Role;
 }
 
 interface AuthContextType {
@@ -13,7 +16,7 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<Profile>;
-  signUp: (fullName: string, email: string, password: string, role: Profile["role"]) => Promise<Profile>;
+  signUp: (fullName: string, email: string, password: string, role: Role) => Promise<Profile>;
   signOut: () => void;
 }
 
@@ -26,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-  // Load user on mount
+  // Load user from localStorage on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
     const storedProfile = localStorage.getItem("profile");
@@ -38,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(parsed);
       } catch {
         localStorage.removeItem("profile");
+        localStorage.removeItem("token");
       }
     }
     setLoading(false);
@@ -68,7 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return profile;
     } catch (err: any) {
-      throw new Error(err.message);
+      throw new Error(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -81,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fullName: string,
     email: string,
     password: string,
-    role: Profile["role"]
+    role: Role
   ): Promise<Profile> => {
     setLoading(true);
     try {
@@ -104,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return profile;
     } catch (err: any) {
-      throw new Error(err.message);
+      throw new Error(err.message || "Signup failed");
     } finally {
       setLoading(false);
     }

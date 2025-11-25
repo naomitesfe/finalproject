@@ -3,7 +3,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export const SignupPage = () => {
+interface SignupPageProps {
+  onToggle?: () => void;
+}
+
+export const SignupPage = ({ onToggle }: SignupPageProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -139,7 +143,7 @@ export const SignupPage = () => {
         {/* Toggle Login */}
         <div className="mt-6 text-center">
           <button
-            onClick={() => navigate('/login')}
+            onClick={(onToggle) => navigate('/login')}
             className="text-[#00AEEF] hover:text-[#0B2C45] font-medium transition"
           >
             Already have an account? Sign In

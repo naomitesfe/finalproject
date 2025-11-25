@@ -1,48 +1,47 @@
 import { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
 import { LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-export const LoginPage = () => {
+interface LoginPageProps {
+  onToggle?: () => void;
+}
+
+export const LoginPage = ({ onToggle }: LoginPageProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
 
     try {
-      const profile = await signIn(email, password);
-      const role = profile.role;
+      const response = await axios.post("http://localhost:5000/api/auth/login", {
+        email,
+        password,
+      });
 
+      // Save token and user profile
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+
+      // Redirect based on role
+      const role = response.data.user.role;
       switch (role) {
-        case "entrepreneur":
-          navigate("/entrepreneur/dashboard");
-          break;
-        case "investor":
-          navigate("/investor/dashboard");
-          break;
-        case "realtor":
-          navigate("/realtor/dashboard");
-          break;
-        case "supplier":
-          navigate("/supplier/dashboard");
-          break;
-        case "admin":
-          navigate("/admin/dashboard");
-          break;
-        default:
-          navigate("/");
-          break;
+        case "entrepreneur": navigate("/entrepreneur/dashboard"); break;
+        case "investor": navigate("/investor/dashboard"); break;
+        case "realtor": navigate("/realtor/dashboard"); break;
+        case "supplier": navigate("/supplier/dashboard"); break;
+        case "admin": navigate("/admin/dashboard"); break;
+        default: navigate("/"); break;
       }
     } catch (err: any) {
-      setError(err.message || "Login failed");
+      setError(err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -65,9 +64,7 @@ export const LoginPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               id="email"
               type="email"
@@ -80,9 +77,7 @@ export const LoginPage = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               id="password"
               type="password"
@@ -105,12 +100,21 @@ export const LoginPage = () => {
         </form>
 
         <div className="mt-6 text-center">
-          <button
-            onClick={() => navigate("/signup")}
-            className="text-[#00AEEF] hover:text-[#0B2C45] font-medium transition"
-          >
-            Don't have an account? Sign Up
-          </button>
+          {onToggle ? (
+            <button
+              onClick={onToggle}
+              className="text-[#00AEEF] hover:text-[#0B2C45] font-medium transition"
+            >
+              Don't have an account? Sign Up
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/signup")}
+              className="text-[#00AEEF] hover:text-[#0B2C45] font-medium transition"
+            >
+              Don't have an account? Sign Up
+            </button>
+          )}
         </div>
 
       </div>

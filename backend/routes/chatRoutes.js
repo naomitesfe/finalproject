@@ -1,6 +1,6 @@
 import express from "express";
-import ChatSession from "../../models/ChatSession.js";
-import Message from "../../models/Message.js";
+import ChatSession from "../models/ChatSession.js";
+import Message from "../models/Message.js";
 import { clerkClient } from "@clerk/clerk-sdk-node";
 import OpenAI from "openai";
 

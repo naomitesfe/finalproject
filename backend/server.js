@@ -6,6 +6,8 @@ import dotenv from "dotenv";
 
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import businessIdeasRoutes from "./routes/businessIdeasRoutes.js";
+import investmentRoutes from "./routes/investmentRoutes.js"; 
 
 import User from "./models/User.js";
 import BusinessIdea from "./models/BusinessIdea.js";
@@ -24,19 +26,15 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(cors());
 app.use(express.json());
 
-// --------------------
 // Routes
-// --------------------
 app.use("/api/auth", authRoutes);
+app.use("/api/business-ideas", businessIdeasRoutes);
+app.use("/api/investments", investmentRoutes);
 
-// --------------------
 // Test route
-// --------------------
 app.get("/", (req, res) => res.send("Socket.IO & MongoDB server running"));
 
-// --------------------
 // Admin Dashboard Data
-// --------------------
 app.get("/api/dashboard", protect, adminOnly, async (req, res) => {
   try {
     const users = await User.find();
@@ -50,9 +48,7 @@ app.get("/api/dashboard", protect, adminOnly, async (req, res) => {
   }
 });
 
-// --------------------
 // Socket.IO events
-// --------------------
 const connectedUsers = new Map();
 
 io.on("connection", (socket) => {
@@ -79,8 +75,6 @@ io.on("connection", (socket) => {
   });
 });
 
-// --------------------
-// Start Server
-// --------------------
+// Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
